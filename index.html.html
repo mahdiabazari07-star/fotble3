@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>بازی فوتبال</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2ea;--ink:#16301f;--sub:#4b6552;--btn:#1d5fd6;--btnt:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1912;--ink:#e7f1e9;--sub:#98b09f}}
+:root[data-theme="dark"]{--bg:#0e1912;--ink:#e7f1e9;--sub:#98b09f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,sans-serif;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+#sb{display:flex;direction:ltr;align-items:center;justify-content:center;gap:16px;font-weight:800;font-size:22px}
+#sb .n{font-size:15px;font-weight:400;color:var(--sub)}
+#tt{min-width:64px;text-align:center;font-size:18px}
+#wrap{position:relative;width:100%;max-width:860px}
+canvas{display:block;width:100%;height:auto;border-radius:10px;touch-action:none}
+#ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,25,15,.72);color:#fff;border-radius:10px;text-align:center;padding:16px}
+#ov h2{margin:0;font-size:32px}
+#ov p{margin:0;max-width:420px;line-height:1.9}
+button{font:inherit;font-weight:800;background:var(--btn);color:var(--btnt);border:0;border-radius:8px;padding:10px 26px;cursor:pointer}
+button:focus-visible{outline:3px solid #ffd23f;outline-offset:2px}
+#sh{padding:16px 44px;font-size:18px;user-select:none;touch-action:none}
+#hint{margin:0;font-size:14px;color:var(--sub);text-align:center;max-width:560px;line-height:1.8}
+</style>
+</head>
+<body>
+<div id="sb"><span class="n">شما</span><span id="s0">۰</span><span id="tt">۲:۰۰</span><span id="s1">۰</span><span class="n">حریف</span></div>
+<div id="wrap">
+<canvas id="c" width="800" height="500"></canvas>
+<div id="ov"><h2 id="ot">فوتبال</h2><p id="op"></p><button id="ob">شروع بازی</button></div>
+</div>
+<button id="sh">شوت</button>
+<p id="hint">حرکت با کلیدهای جهت‌دار یا WASD و شوت با فاصله (Space). روی موبایل انگشتتان را روی زمین بکشید و دکمهٔ شوت را بزنید.</p>
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+const W=800,H=500,L=24,R=776,T=24,B=476,GT=175,GB=325,BR=9,PR=16;
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+const keys={};let tv={x:0,y:0};
+const mk=(x,y,team,human)=>({x,y,hx:x,hy:y,vx:0,vy:0,team,human,fx:team?-1:1,fy:0,cd:0});
+const S={pl:[mk(340,250,0,1),mk(210,360,0,0),mk(460,250,1,0),mk(590,140,1,0)],sc:[0,0],time:120,phase:'ready',fr:0,msg:''};
+const b={x:400,y:250,vx:0,vy:0};
+function reset(){S.pl.forEach(p=>{p.x=p.hx;p.y=p.hy;p.vx=p.vy=0;p.cd=0});b.x=400;b.y=250;b.vx=b.vy=0}
+function kick(p,dx,dy,sp){const m=Math.hypot(dx,dy)||1;b.vx=dx/m*sp;b.vy=dy/m*sp;p.cd=.35}
+function move(p,dx,dy,sp,dt){
+  let m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;m=1}
+  if(m>.25){p.fx=dx/m;p.fy=dy/m}
+  const k=Math.min(1,10*dt);
+  p.vx+=(dx*sp-p.vx)*k;p.vy+=(dy*sp-p.vy)*k;
+  p.x=cl(p.x+p.vx*dt,L+PR,R-PR);p.y=cl(p.y+p.vy*dt,T+PR,B-PR);
+  if(p.cd>0)p.cd-=dt;
+}
+function ai(p,dt){
+  const mates=S.pl.filter(q=>q.team===p.team);
+  const dist=q=>Math.hypot(q.x-b.x,q.y-b.y);
+  const ch=mates.reduce((a,q)=>dist(q)<dist(a)?q:a);
+  const gx=p.team?L:R;let tx,ty;
+  if(ch===p){
+    const ax=gx-b.x,ay=250-b.y,am=Math.hypot(ax,ay)||1,d=dist(p);
+    if(d>50){tx=b.x+b.vx*.25-ax/am*16;ty=b.y+b.vy*.25-ay/am*16}else{tx=b.x;ty=b.y}
+    if(d<PR+BR+10&&p.cd<=0)kick(p,gx-b.x,250+(Math.random()-.5)*110-b.y,p.team?430:450);
+  }else{tx=p.hx+(b.x-p.hx)*.3;ty=p.hy+(b.y-p.hy)*.3}
+  move(p,(tx-p.x)/25,(ty-p.y)/25,p.team?165:170,dt);
+}
+function goal(team){
+  S.sc[team]++;S.phase='goal';S.fr=1.7;
+  S.msg=team?'گل خوردیم!':'گل!';
+}
+function step(dt){
+  if(S.phase==='ready'||S.phase==='over')return;
+  if(S.phase==='play'){
+    S.time-=dt;
+    const h=S.pl[0];
+    move(h,(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0)+tv.x,(keys.ArrowDown||keys.KeyS?1:0)-(keys.ArrowUp||keys.KeyW?1:0)+tv.y,200,dt);
+    if(keys.Space&&h.cd<=0&&Math.hypot(h.x-b.x,h.y-b.y)<PR+BR+14)kick(h,h.fx,h.fy,540);
+    for(let i=1;i<4;i++)ai(S.pl[i],dt);
+    for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){
+      const p=S.pl[i],q=S.pl[j],dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);
+      if(d<PR*2&&d>0){const o=(PR*2-d)/2;p.x-=dx/d*o;p.y-=dy/d*o;q.x+=dx/d*o;q.y+=dy/d*o}
+    }
+  }else{
+    S.fr-=dt;
+    if(S.fr<=0){reset();S.phase='play'}
+  }
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  const f=Math.pow(.35,dt);b.vx*=f;b.vy*=f;
+  if(S.phase==='play')for(const p of S.pl){
+    const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy),mn=PR+BR;
+    if(d<mn&&d>0){
+      const nx=dx/d,ny=dy/d;b.x=p.x+nx*mn;b.y=p.y+ny*mn;
+      const rv=(b.vx-p.vx)*nx+(b.vy-p.vy)*ny;
+      if(rv<0){b.vx-=1.5*rv*nx;b.vy-=1.5*rv*ny}
+    }
+  }
+  const gap=b.y>GT&&b.y<GB;
+  if(b.y<T+BR){b.y=T+BR;b.vy=Math.abs(b.vy)*.8}
+  if(b.y>B-BR){b.y=B-BR;b.vy=-Math.abs(b.vy)*.8}
+  if(b.x<L+BR&&!gap&&b.x>=L-BR){b.x=L+BR;b.vx=Math.abs(b.vx)*.8}
+  if(b.x>R-BR&&!gap&&b.x<=R+BR){b.x=R-BR;b.vx=-Math.abs(b.vx)*.8}
+  if(b.x<L||b.x>R)b.y=cl(b.y,GT+BR,GB-BR);
+  if(b.x<L-22){b.x=L-22;b.vx=Math.abs(b.vx)*.3}
+  if(b.x>R+22){b.x=R+22;b.vx=-Math.abs(b.vx)*.3}
+  if(S.phase==='play'){
+    if(b.x<L-BR)goal(1);else if(b.x>R+BR)goal(0);
+    if(S.time<=0&&S.phase==='play')finish();
+  }
+}
+function finish(){
+  S.phase='over';S.time=0;
+  const [a,c]=S.sc;
+  show(a>c?'بردید!':a<c?'باختید':'مساوی',`نتیجه: شما ${fa(a)} ـ ${fa(c)} حریف`,'بازی دوباره');
+}
+function draw(){
+  g.fillStyle='#1f5a37';g.fillRect(0,0,W,H);
+  for(let i=0;i<10;i++){g.fillStyle=i%2?'#2e7d4b':'#297144';g.fillRect(L+i*75.2,T,75.2,B-T)}
+  g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=3;
+  g.strokeRect(L,T,R-L,B-T);
+  g.beginPath();g.moveTo(400,T);g.lineTo(400,B);g.stroke();
+  g.beginPath();g.arc(400,250,60,0,7);g.stroke();
+  g.strokeRect(L,130,110,240);g.strokeRect(R-110,130,110,240);
+  g.fillStyle='rgba(255,255,255,.22)';
+  g.fillRect(L-24,GT,24,GB-GT);g.fillRect(R,GT,24,GB-GT);
+  g.strokeRect(L-24,GT,24,GB-GT);g.strokeRect(R,GT,24,GB-GT);
+  g.fillStyle='rgba(0,0,0,.22)';
+  g.beginPath();g.ellipse(b.x+3,b.y+5,BR,BR*.6,0,0,7);g.fill();
+  for(const p of S.pl){
+    g.fillStyle='rgba(0,0,0,.22)';g.beginPath();g.ellipse(p.x+3,p.y+6,PR,PR*.6,0,0,7);g.fill();
+    g.fillStyle=p.team?'#dc3c2a':'#2563eb';g.beginPath();g.arc(p.x,p.y,PR,0,7);g.fill();
+    g.strokeStyle='rgba(0,0,0,.45)';g.lineWidth=2;g.stroke();
+    if(p.human){
+      g.strokeStyle='#fff';g.lineWidth=3;g.beginPath();g.arc(p.x,p.y,PR+4,0,7);g.stroke();
+      g.fillStyle='#fff';g.beginPath();g.moveTo(p.x,p.y-PR-6);g.lineTo(p.x-6,p.y-PR-16);g.lineTo(p.x+6,p.y-PR-16);g.fill();
+    }
+  }
+  g.fillStyle='#fff';g.beginPath();g.arc(b.x,b.y,BR,0,7);g.fill();
+  g.strokeStyle='#222';g.lineWidth=2;g.stroke();
+  if(S.phase==='goal'){
+    g.font='800 64px Vazirmatn,Tahoma,sans-serif';g.textAlign='center';g.lineWidth=8;
+    g.strokeStyle='rgba(0,0,0,.6)';g.strokeText(S.msg,400,262);g.fillStyle='#fff';g.fillText(S.msg,400,262);
+  }
+  const t=Math.max(0,Math.ceil(S.time));
+  document.getElementById('s0').textContent=fa(S.sc[0]);
+  document.getElementById('s1').textContent=fa(S.sc[1]);
+  document.getElementById('tt').textContent=fa(Math.floor(t/60))+':'+fa(String(t%60).padStart(2,'0'));
+}
+let last=0;
+function frame(ts){const dt=Math.min(.033,(ts-last)/1000||0);last=ts;step(dt);draw();requestAnimationFrame(frame)}
+const ov=document.getElementById('ov');
+function show(t,p,btn){document.getElementById('ot').textContent=t;document.getElementById('op').textContent=p;document.getElementById('ob').textContent=btn;ov.style.display='flex'}
+document.getElementById('ob').onclick=()=>{S.sc=[0,0];S.time=120;reset();S.phase='play';ov.style.display='none'};
+show('فوتبال','دو دقیقه وقت دارید. با هم‌تیمی‌تان بیشتر از حریف گل بزنید و توپ را به دروازهٔ سمت راست برسانید.','شروع بازی');
+addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault()});
+addEventListener('keyup',e=>{keys[e.code]=false});
+let org=null;
+cv.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;org={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!org)return;tv={x:cl((e.clientX-org.x)/40,-1,1),y:cl((e.clientY-org.y)/40,-1,1)}});
+const end=()=>{org=null;tv={x:0,y:0}};
+cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+const sh=document.getElementById('sh');
+sh.addEventListener('pointerdown',e=>{keys.Space=true;e.preventDefault()});
+['pointerup','pointerleave','pointercancel'].forEach(n=>sh.addEventListener(n,()=>{keys.Space=false}));
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
